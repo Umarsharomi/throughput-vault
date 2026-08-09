@@ -25,7 +25,7 @@ contract ThroughputVault {
     }
 
     string public constant name = "Throughput Vault";
-    string public constant version = "0.4.0";
+    string public constant version = "0.5.0";
 
     uint256 public constant INITIAL_SHARE_PRICE = 1e18;
 
@@ -47,6 +47,7 @@ contract ThroughputVault {
     error InvalidRequest();
     error AlreadySettled();
     error AlreadyClaimed();
+    error InsufficientLiquidity();
 
     event Deposited(
         address indexed caller,
@@ -59,6 +60,18 @@ contract ThroughputVault {
         uint256 indexed requestId,
         address indexed owner,
         uint256 shares,
+        uint256 assets
+    );
+
+    event WithdrawalSettled(
+        uint256 indexed requestId,
+        address indexed owner,
+        uint256 assets
+    );
+
+    event WithdrawalClaimed(
+        uint256 indexed requestId,
+        address indexed owner,
         uint256 assets
     );
 
@@ -134,6 +147,67 @@ contract ThroughputVault {
         });
 
         emit WithdrawalRequested(requestId, msg.sender, shares, assets);
+    }
+
+    function settleWithdrawal(uint256 requestId) external {
+        if (state != State.SETTLEMENT) {
+            revert InvalidState();
+        }
+
+        WithdrawalRequest storage request = withdrawals[requestId];
+
+        if (request.owner == address(0)) {
+            revert InvalidRequest();
+        }
+
+        if (request.settled) {
+            revert AlreadySettled();
+        }
+
+        if (request.claimed) {
+            revert AlreadyClaimed();
+        }
+
+        request.settled = true;
+
+        emit WithdrawalSettled(requestId, request.owner, request.assets);
+    }
+
+    function claim(uint256 requestId) external returns (uint256 assets) {
+        if (state != State.SETTLEMENT && state != State.ACTIVE) {
+            revert InvalidState();
+        }
+
+        WithdrawalRequest storage request = withdrawals[requestId];
+
+        if (request.owner == address(0)) {
+            revert InvalidRequest();
+        }
+
+        if (request.owner != msg.sender) {
+            revert InvalidReceiver();
+        }
+
+        if (!request.settled) {
+            revert InvalidRequest();
+        }
+
+        if (request.claimed) {
+            revert AlreadyClaimed();
+        }
+
+        assets = request.assets;
+
+        if (totalAssets < assets) {
+            revert InsufficientLiquidity();
+        }
+
+        request.claimed = true;
+        totalAssets -= assets;
+
+        IERC20(asset).safeTransfer(msg.sender, assets);
+
+        emit WithdrawalClaimed(requestId, msg.sender, assets);
     }
 
     function sharePrice() public view returns (uint256) {

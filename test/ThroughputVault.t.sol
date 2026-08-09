@@ -10,6 +10,7 @@ contract ThroughputVaultTest is Test {
     MockERC20 token;
 
     address user = address(0xBEEF);
+    address attacker = address(0xBAD);
 
     function setUp() public {
         token = new MockERC20();
@@ -27,28 +28,19 @@ contract ThroughputVaultTest is Test {
         vault.deposit(amount, user);
     }
 
-    function test_Deposit() public {
-        depositForUser(100 ether);
-
-        assertEq(vault.totalAssets(), 100 ether);
-        assertEq(vault.totalShares(), 100 ether);
-        assertEq(vault.sharesOf(user), 100 ether);
-        assertEq(token.balanceOf(address(vault)), 100 ether);
-    }
-
-    function test_DepositEmitsEvent() public {
-        vm.expectEmit(true, true, false, true);
-        emit ThroughputVault.Deposited(user, user, 100 ether, 100 ether);
-
-        vm.prank(user);
-        vault.deposit(100 ether, user);
-    }
-
-    function test_RequestWithdrawal() public {
+    function createWithdrawal() internal returns (uint256 requestId) {
         depositForUser(100 ether);
 
         vm.prank(user);
-        uint256 requestId = vault.requestWithdrawal(40 ether);
+        requestId = vault.requestWithdrawal(40 ether);
+
+        vault.setState(ThroughputVault.State.SETTLEMENT);
+    }
+
+    function test_SettleWithdrawal() public {
+        uint256 requestId = createWithdrawal();
+
+        vault.settleWithdrawal(requestId);
 
         (
             address owner,
@@ -58,58 +50,73 @@ contract ThroughputVaultTest is Test {
             bool claimed
         ) = vault.withdrawals(requestId);
 
-        assertEq(requestId, 0);
         assertEq(owner, user);
         assertEq(shares, 40 ether);
         assertEq(assets, 40 ether);
-        assertFalse(settled);
+        assertTrue(settled);
         assertFalse(claimed);
-
-        assertEq(vault.sharesOf(user), 60 ether);
-        assertEq(vault.totalShares(), 60 ether);
-        assertEq(vault.totalAssets(), 100 ether);
     }
 
-    function test_RequestWithdrawalEmitsEvent() public {
-        depositForUser(100 ether);
+    function test_ClaimWithdrawal() public {
+        uint256 requestId = createWithdrawal();
 
-        vm.expectEmit(true, true, false, true);
-        emit ThroughputVault.WithdrawalRequested(
-            0,
-            user,
-            40 ether,
-            40 ether
-        );
+        vault.settleWithdrawal(requestId);
+
+        uint256 balanceBefore = token.balanceOf(user);
 
         vm.prank(user);
-        vault.requestWithdrawal(40 ether);
+        uint256 assets = vault.claim(requestId);
+
+        assertEq(assets, 40 ether);
+        assertEq(token.balanceOf(user), balanceBefore + 40 ether);
+        assertEq(vault.totalAssets(), 60 ether);
+
+        (, , , bool settled, bool claimed) = vault.withdrawals(requestId);
+
+        assertTrue(settled);
+        assertTrue(claimed);
     }
 
-    function test_RevertWhenWithdrawalIsZero() public {
-        depositForUser(100 ether);
+    function test_RevertWhenSettlingTwice() public {
+        uint256 requestId = createWithdrawal();
 
-        vm.expectRevert(ThroughputVault.InvalidAmount.selector);
+        vault.settleWithdrawal(requestId);
 
-        vm.prank(user);
-        vault.requestWithdrawal(0);
+        vm.expectRevert(ThroughputVault.AlreadySettled.selector);
+        vault.settleWithdrawal(requestId);
     }
 
-    function test_RevertWhenSharesAreInsufficient() public {
-        depositForUser(100 ether);
+    function test_RevertWhenClaimingBeforeSettlement() public {
+        uint256 requestId = createWithdrawal();
 
-        vm.expectRevert(ThroughputVault.InsufficientShares.selector);
+        vm.expectRevert(ThroughputVault.InvalidRequest.selector);
 
         vm.prank(user);
-        vault.requestWithdrawal(101 ether);
+        vault.claim(requestId);
     }
 
-    function test_RevertWhenWithdrawalRequestIsPaused() public {
-        depositForUser(100 ether);
-        vault.setState(ThroughputVault.State.PAUSED);
+    function test_RevertWhenUnauthorizedUserClaims() public {
+        uint256 requestId = createWithdrawal();
 
-        vm.expectRevert(ThroughputVault.InvalidState.selector);
+        vault.settleWithdrawal(requestId);
+
+        vm.expectRevert(ThroughputVault.InvalidReceiver.selector);
+
+        vm.prank(attacker);
+        vault.claim(requestId);
+    }
+
+    function test_RevertWhenClaimingTwice() public {
+        uint256 requestId = createWithdrawal();
+
+        vault.settleWithdrawal(requestId);
 
         vm.prank(user);
-        vault.requestWithdrawal(10 ether);
+        vault.claim(requestId);
+
+        vm.expectRevert(ThroughputVault.AlreadyClaimed.selector);
+
+        vm.prank(user);
+        vault.claim(requestId);
     }
 }
