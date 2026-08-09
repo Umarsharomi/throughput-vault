@@ -139,3 +139,30 @@ contract ThroughputVaultAuthorizationTest is Test {
         vault.setState(ThroughputVault.State.PAUSED);
     }
 }
+
+contract ThroughputVaultPauseTest is Test {
+    ThroughputVault vault;
+    MockERC20 token;
+
+    address user = address(0xBEEF);
+
+    function setUp() public {
+        token = new MockERC20();
+        vault = new ThroughputVault(address(token));
+
+        token.mint(user, 100 ether);
+
+        vm.startPrank(user);
+        token.approve(address(vault), type(uint256).max);
+        vm.stopPrank();
+
+        vault.setState(ThroughputVault.State.PAUSED);
+    }
+
+    function test_DepositBlockedWhenPaused() public {
+        vm.expectRevert(ThroughputVault.InvalidState.selector);
+
+        vm.prank(user);
+        vault.deposit(1 ether, user);
+    }
+}
