@@ -25,11 +25,12 @@ contract ThroughputVault {
     }
 
     string public constant name = "Throughput Vault";
-    string public constant version = "0.5.0";
+    string public constant version = "0.6.0";
 
     uint256 public constant INITIAL_SHARE_PRICE = 1e18;
 
     address public immutable asset;
+    address public immutable owner;
     State public state;
 
     uint256 public totalAssets;
@@ -48,6 +49,7 @@ contract ThroughputVault {
     error AlreadySettled();
     error AlreadyClaimed();
     error InsufficientLiquidity();
+    error Unauthorized();
 
     event Deposited(
         address indexed caller,
@@ -81,6 +83,7 @@ contract ThroughputVault {
         }
 
         asset = asset_;
+        owner = msg.sender;
         state = State.ACTIVE;
     }
 
@@ -219,6 +222,10 @@ contract ThroughputVault {
     }
 
     function setState(State newState) external {
+        if (msg.sender != owner) {
+            revert Unauthorized();
+        }
+
         if (newState == State.UNINITIALIZED) {
             revert InvalidState();
         }

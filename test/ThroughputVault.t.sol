@@ -120,3 +120,22 @@ contract ThroughputVaultTest is Test {
         vault.claim(requestId);
     }
 }
+
+contract ThroughputVaultAuthorizationTest is Test {
+    ThroughputVault vault;
+    MockERC20 token;
+
+    address attacker = address(0xBAD);
+
+    function setUp() public {
+        token = new MockERC20();
+        vault = new ThroughputVault(address(token));
+    }
+
+    function test_RevertWhenUnauthorizedChangesState() public {
+        vm.expectRevert(ThroughputVault.Unauthorized.selector);
+
+        vm.prank(attacker);
+        vault.setState(ThroughputVault.State.PAUSED);
+    }
+}
