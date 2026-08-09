@@ -16,8 +16,16 @@ contract ThroughputVault {
         FINALIZED
     }
 
+    struct WithdrawalRequest {
+        address owner;
+        uint256 shares;
+        uint256 assets;
+        bool settled;
+        bool claimed;
+    }
+
     string public constant name = "Throughput Vault";
-    string public constant version = "0.3.0";
+    string public constant version = "0.4.0";
 
     uint256 public constant INITIAL_SHARE_PRICE = 1e18;
 
@@ -26,19 +34,32 @@ contract ThroughputVault {
 
     uint256 public totalAssets;
     uint256 public totalShares;
+    uint256 public nextRequestId;
 
     mapping(address => uint256) public sharesOf;
+    mapping(uint256 => WithdrawalRequest) public withdrawals;
 
     error InvalidAsset();
     error InvalidState();
     error InvalidAmount();
     error InvalidReceiver();
+    error InsufficientShares();
+    error InvalidRequest();
+    error AlreadySettled();
+    error AlreadyClaimed();
 
     event Deposited(
         address indexed caller,
         address indexed receiver,
         uint256 assets,
         uint256 shares
+    );
+
+    event WithdrawalRequested(
+        uint256 indexed requestId,
+        address indexed owner,
+        uint256 shares,
+        uint256 assets
     );
 
     constructor(address asset_) {
@@ -79,6 +100,40 @@ contract ThroughputVault {
         sharesOf[receiver] += shares;
 
         emit Deposited(msg.sender, receiver, assets, shares);
+    }
+
+    function requestWithdrawal(
+        uint256 shares
+    ) external returns (uint256 requestId) {
+        if (state != State.ACTIVE && state != State.LIMITED) {
+            revert InvalidState();
+        }
+
+        if (shares == 0) {
+            revert InvalidAmount();
+        }
+
+        if (sharesOf[msg.sender] < shares) {
+            revert InsufficientShares();
+        }
+
+        uint256 assets = (shares * sharePrice()) / 1e18;
+
+        sharesOf[msg.sender] -= shares;
+        totalShares -= shares;
+
+        requestId = nextRequestId;
+        nextRequestId = requestId + 1;
+
+        withdrawals[requestId] = WithdrawalRequest({
+            owner: msg.sender,
+            shares: shares,
+            assets: assets,
+            settled: false,
+            claimed: false
+        });
+
+        emit WithdrawalRequested(requestId, msg.sender, shares, assets);
     }
 
     function sharePrice() public view returns (uint256) {
