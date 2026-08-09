@@ -3,3 +3,6 @@ out/
 cache/
 broadcast/
 slither-report.txt
+
+slither-report.json
+slither.db.json
