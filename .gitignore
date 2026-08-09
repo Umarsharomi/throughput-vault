@@ -5,3 +5,20 @@ broadcast/
 slither-report.txt
 slither-report.json
 slither.db.json
+
+# Foundry generated files
+out/
+cache/
+broadcast/
+deployments/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.keystore
+*.key
+*.pem
+
+# Analysis reports
+slither-console.txt
