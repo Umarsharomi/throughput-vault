@@ -3,41 +3,65 @@ pragma solidity 0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {ThroughputVault} from "../src/ThroughputVault.sol";
+import {MockERC20} from "../src/mocks/MockERC20.sol";
 
 contract ThroughputVaultTest is Test {
     ThroughputVault vault;
+    MockERC20 token;
 
-    address constant ASSET = address(0x1234);
+    address user = address(0xBEEF);
 
     function setUp() public {
-        vault = new ThroughputVault(ASSET);
+        token = new MockERC20();
+        vault = new ThroughputVault(address(token));
+
+        token.mint(user, 1_000 ether);
+
+        vm.startPrank(user);
+        token.approve(address(vault), type(uint256).max);
+        vm.stopPrank();
     }
 
-    function test_Name() public view {
-        assertEq(vault.name(), "Throughput Vault");
+    function test_Deposit() public {
+        vm.prank(user);
+
+        uint256 shares = vault.deposit(100 ether, user);
+
+        assertEq(shares, 100 ether);
+        assertEq(vault.totalAssets(), 100 ether);
+        assertEq(vault.totalShares(), 100 ether);
+        assertEq(vault.sharesOf(user), 100 ether);
+        assertEq(token.balanceOf(address(vault)), 100 ether);
     }
 
-    function test_Version() public view {
-        assertEq(vault.version(), "0.2.0");
+    function test_DepositEmitsEvent() public {
+        vm.expectEmit(true, true, false, true);
+        emit ThroughputVault.Deposited(user, user, 100 ether, 100 ether);
+
+        vm.prank(user);
+        vault.deposit(100 ether, user);
     }
 
-    function test_Asset() public view {
-        assertEq(vault.asset(), ASSET);
+    function test_RevertWhenDepositAmountIsZero() public {
+        vm.expectRevert(ThroughputVault.InvalidAmount.selector);
+
+        vm.prank(user);
+        vault.deposit(0, user);
     }
 
-    function test_InitialStateIsActive() public view {
-        assertEq(
-            uint256(vault.state()),
-            uint256(ThroughputVault.State.ACTIVE)
-        );
+    function test_RevertWhenReceiverIsZeroAddress() public {
+        vm.expectRevert(ThroughputVault.InvalidReceiver.selector);
+
+        vm.prank(user);
+        vault.deposit(100 ether, address(0));
     }
 
-    function test_InitialTotalsAreZero() public view {
-        assertEq(vault.totalAssets(), 0);
-        assertEq(vault.totalShares(), 0);
-    }
+    function test_RevertWhenPaused() public {
+        vault.setState(ThroughputVault.State.PAUSED);
 
-    function test_InitialSharePrice() public view {
-        assertEq(vault.sharePrice(), 1e18);
+        vm.expectRevert(ThroughputVault.InvalidState.selector);
+
+        vm.prank(user);
+        vault.deposit(100 ether, user);
     }
 }
