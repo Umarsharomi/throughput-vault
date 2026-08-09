@@ -1,14 +1,15 @@
 # Security
 
-## Static analysis
+## Project status
 
-Slither was run against `src/ThroughputVault.sol` with dependency findings excluded.
+Throughput Vault is experimental software and has not undergone an
+independent professional security audit. Do not use it with production funds.
 
-The only initial finding was `pragma`, an informational warning caused by
-different Solidity pragmas in OpenZeppelin dependencies. No High, Medium, or
-Low severity findings were reported in the production contract.
+## Testing
 
-Command:
+The project uses Foundry unit, fuzz, and invariant tests.
+
+Run the test suite with:
 
 ```bash
-slither src/ThroughputVault.sol --exclude-dependencies --exclude pragma
+forge test
