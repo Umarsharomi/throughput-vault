@@ -42,13 +42,7 @@ contract ThroughputVaultTest is Test {
 
         vault.settleWithdrawal(requestId);
 
-        (
-            address owner,
-            uint256 shares,
-            uint256 assets,
-            bool settled,
-            bool claimed
-        ) = vault.withdrawals(requestId);
+        (address owner, uint256 shares, uint256 assets, bool settled, bool claimed) = vault.withdrawals(requestId);
 
         assertEq(owner, user);
         assertEq(shares, 40 ether);
@@ -71,7 +65,7 @@ contract ThroughputVaultTest is Test {
         assertEq(token.balanceOf(user), balanceBefore + 40 ether);
         assertEq(vault.totalAssets(), 60 ether);
 
-        (, , , bool settled, bool claimed) = vault.withdrawals(requestId);
+        (,,, bool settled, bool claimed) = vault.withdrawals(requestId);
 
         assertTrue(settled);
         assertTrue(claimed);

@@ -51,31 +51,13 @@ contract ThroughputVault {
     error InsufficientLiquidity();
     error Unauthorized();
 
-    event Deposited(
-        address indexed caller,
-        address indexed receiver,
-        uint256 assets,
-        uint256 shares
-    );
+    event Deposited(address indexed caller, address indexed receiver, uint256 assets, uint256 shares);
 
-    event WithdrawalRequested(
-        uint256 indexed requestId,
-        address indexed owner,
-        uint256 shares,
-        uint256 assets
-    );
+    event WithdrawalRequested(uint256 indexed requestId, address indexed owner, uint256 shares, uint256 assets);
 
-    event WithdrawalSettled(
-        uint256 indexed requestId,
-        address indexed owner,
-        uint256 assets
-    );
+    event WithdrawalSettled(uint256 indexed requestId, address indexed owner, uint256 assets);
 
-    event WithdrawalClaimed(
-        uint256 indexed requestId,
-        address indexed owner,
-        uint256 assets
-    );
+    event WithdrawalClaimed(uint256 indexed requestId, address indexed owner, uint256 assets);
 
     constructor(address asset_) {
         if (asset_ == address(0)) {
@@ -87,10 +69,7 @@ contract ThroughputVault {
         state = State.ACTIVE;
     }
 
-    function deposit(
-        uint256 assets,
-        address receiver
-    ) external returns (uint256 shares) {
+    function deposit(uint256 assets, address receiver) external returns (uint256 shares) {
         if (state != State.ACTIVE && state != State.LIMITED) {
             revert InvalidState();
         }
@@ -118,9 +97,7 @@ contract ThroughputVault {
         emit Deposited(msg.sender, receiver, assets, shares);
     }
 
-    function requestWithdrawal(
-        uint256 shares
-    ) external returns (uint256 requestId) {
+    function requestWithdrawal(uint256 shares) external returns (uint256 requestId) {
         if (state != State.ACTIVE && state != State.LIMITED) {
             revert InvalidState();
         }
@@ -141,13 +118,8 @@ contract ThroughputVault {
         requestId = nextRequestId;
         nextRequestId = requestId + 1;
 
-        withdrawals[requestId] = WithdrawalRequest({
-            owner: msg.sender,
-            shares: shares,
-            assets: assets,
-            settled: false,
-            claimed: false
-        });
+        withdrawals[requestId] =
+            WithdrawalRequest({owner: msg.sender, shares: shares, assets: assets, settled: false, claimed: false});
 
         emit WithdrawalRequested(requestId, msg.sender, shares, assets);
     }

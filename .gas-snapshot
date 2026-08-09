@@ -1,6 +1,7 @@
 MockERC20Test:test_Metadata() (gas: 18496)
 MockERC20Test:test_Mint() (gas: 56175)
 ThroughputVaultAuthorizationTest:test_RevertWhenUnauthorizedChangesState() (gas: 10914)
+ThroughputVaultInvariantTest:invariant_sharePriceIsPositive() (runs: 256, calls: 128000, reverts: 0)
 ThroughputVaultPauseTest:test_DepositBlockedWhenPaused() (gas: 13392)
 ThroughputVaultTest:test_ClaimWithdrawal() (gas: 257022)
 ThroughputVaultTest:test_RevertWhenClaimingBeforeSettlement() (gas: 220072)
