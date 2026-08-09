@@ -1,19 +1,25 @@
-name: CI
+name: ThroughputVault CI
 
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
-  test:
+  verify:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Verify
-        run: ./script/verify.sh
+      - name: Run tests
+        run: forge test --gas-report
+
+      - name: Check gas snapshot
+        run: forge snapshot --check
